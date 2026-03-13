@@ -5,6 +5,8 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "adafruit-blinka>=9.0.2",
+    "circuitpython-wiichuck>=0.0.3",
     "easymcp2221>=1.8.4",
     "pyserial>=3.5",
 ]
