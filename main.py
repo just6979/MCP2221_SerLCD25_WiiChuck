@@ -128,11 +128,13 @@ def display():
     line_two = f'A:[{ax},{ay},{az}]'
     cw(line_one + line_two)
 
-log("Running...")
 
+log('Initial Nunchuk state:')
+display()
+
+log("Running...")
+LOG = False
 try:
-    display()
-    LOG = False
     while True:
         display()
 
