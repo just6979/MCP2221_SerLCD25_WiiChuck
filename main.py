@@ -98,14 +98,14 @@ while not found:
         nc_addr = '0x52'
         if nc_addr in devs:
             cp(f'Nunchuk at {nc_addr}')
-            found = True
         else:
             cp('No Nunchuk found')
             quit()
 
         nc = Nunchuk(board.I2C())
+        found = True
     except (OSError, RuntimeError) as e:
-        log(e)
+        log(f'{type(e)}: {e}')
 
 def display():
     x, y = nc.joystick
