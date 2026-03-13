@@ -1,146 +1,107 @@
 """
-working with the mcp2221 with Blinka
+Working with the MCP2221, SerLCD 2.5, and Wii Nunchuks, with Blinka
 """
 
-import os
 
+EXPECTED_BOARD = 'MICROCHIP_MCP2221'
+PORT = '/dev/ttyACM0'
+I2C_ATTEMPTS = 10
+NUNCHUK_ADDRESS = '0x52'
+LCD_UPDATE_DELAY = 0.01
+
+import os
 os.putenv('BLINKA_MCP2221', '1')
 os.reload_environ()
 import time
-import serial
+
 import board
 from wiichuck.nunchuk import Nunchuk
 
-EXPECTED_BOARD = 'MICROCHIP_MCP2221'
-PORT = "/dev/ttyACM0"
-LOG = True
+import SerLCD25
 
+serial: SerLCD25.SerLCD25
+
+
+def show(msg):
+    global ser
+    print(msg)
+    ser.clear()
+    ser.write(msg.encode())
+
+
+print('Connecting to board')
 found_board = board.board_id
-
-def log(msg):
-    if LOG:
-        print(msg)
-
-print("Starting...")
-
-log(found_board)
+print(f'Found board: {found_board}')
 if found_board != EXPECTED_BOARD:
     print(f'{EXPECTED_BOARD} NOT Found, exiting')
     quit()
 
-ser = serial.Serial(
-    port=(f"{PORT}"),
-    baudrate=9600,
-    bytesize=serial.EIGHTBITS,
-    parity=serial.PARITY_NONE,
-    stopbits=serial.STOPBITS_ONE
-)
-
+print('Connecting to UART')
+ser = SerLCD25.SerLCD25(port=PORT)
 if not ser:
     print(f'No UART connected at {PORT}, exiting')
     quit()
 
-
-def cc(code):
-    ser.write(b'\x7C' + code)
-    ser.flush()
-
-
-def ec(code):
-    ser.write(b'\xFE' + code)
-    ser.flush()
-
-
-def clear():
-    ec(b'\x01')
-
-
-def w(msg):
-    if type(msg) != (bytes or bytearray):
-        msg = msg.encode()
-    ser.write(msg)
-    ser.flush()
-
-
-def cw(msg):
-    clear()
-    w(msg)
-
-
-def p(msg):
-    log(msg)
-    w(msg)
-
-
-def cp(msg):
-    log(msg)
-    cw(msg)
-
+print('Connecting to I2C')
 nc = None
 found = False
+attempts = 0
 while not found:
+    time.sleep(1)
+    attempts += 1
     try:
-        cp("Connecting...")
-        bus = board.I2C()
-        # more reliably detect the nunchuk by resetting the i2c bus
-        bus.deinit()
+        show(f'{attempts}: Connecting')
         bus = board.I2C()
 
-        devs = []
-        for i in range(1, 4):
-            cp(f'Scanning ({i})...')
-            devs = [hex(dev) for dev in bus.scan()]
-            print(devs)
-            if devs:
-                break
-            print('Scanning again')
+        show(f'{attempts}: Scanning')
+        devs = [hex(dev) for dev in bus.scan()]
+        if not devs:
+            show(f'{attempts}: No devices found')
+            continue
+        print(f'Devices found: {devs}')
 
-        nc_addr = '0x52'
-        if nc_addr in devs:
-            cp(f'Nunchuk at {nc_addr}')
-        else:
-            cp('No Nunchuk found')
-            quit()
+        if NUNCHUK_ADDRESS not in devs:
+            show(f'{attempts}: No Nunchuks found')
+            continue
 
         nc = Nunchuk(board.I2C())
+        show(f'Nunchuk at {NUNCHUK_ADDRESS}')
         found = True
+
+        if attempts > I2C_ATTEMPTS:
+            break
     except (OSError, RuntimeError) as e:
-        log(f'{type(e)}: {e}')
+        show('Error: {e}')
 
-def display():
-    x, y = nc.joystick
-    ax, ay, az = nc.acceleration
+time.sleep(1)
 
-    log("joystick = {},{}".format(x, y))
-    log("acceleration ax={}, ay={}, az={}".format(ax, ay, az))
+if not found:
+    show(f'{attempts}: No Nunchuks')
+    print(f'No Nunchuks found after {attempts} attempts, exiting')
+    quit()
 
-    buttons = ""
-    if nc.buttons.Z:
-        log("button Z")
-        buttons += "Z"
-    if nc.buttons.C:
-        log("button C")
-        buttons += "C"
-
-    line_one = f'J:{str(x).zfill(3)},{str(y).zfill(3)} B:{buttons}'
-    l = 16 - len(line_one)
-    line_one += ' ' * l
-    line_two = f'A:[{ax},{ay},{az}]'
-    cw(line_one + line_two)
-
-
-log('Initial Nunchuk state:')
-display()
-
-log("Running...")
-LOG = False
+print('Running...')
 try:
     while True:
-        display()
+        x, y = nc.joystick
+        ax, ay, az = nc.acceleration
 
-        time.sleep(0.001)
+        z, c = nc.buttons
+        buttons = f'[{"Z" if z else " "}{"C" if c else " "}]'
+
+        line_one = f'J:{str(x).zfill(3)},{str(y).zfill(3)} B:{buttons}'
+        l = 16 - len(line_one)
+        line_one += ' ' * l
+        line_two = f'A:[{ax},{ay},{az}]'
+        ser.clear()
+        ser.write((line_one + line_two).encode())
+
+        if True:
+            print(line_one)
+            print(line_two)
+
+        time.sleep(LCD_UPDATE_DELAY)
 except KeyboardInterrupt:
     pass
 
-LOG = True
-log("Done")
+print('Done')
