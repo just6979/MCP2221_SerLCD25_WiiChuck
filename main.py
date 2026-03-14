@@ -5,7 +5,7 @@ Working with the MCP2221, SerLCD 2.5, and Wii Nunchuks, with Blinka
 
 EXPECTED_BOARD = 'MICROCHIP_MCP2221'
 PORT = '/dev/ttyACM0'
-I2C_ATTEMPTS = 10
+I2C_ATTEMPTS = 4
 NUNCHUK_ADDRESS = '0x52'
 LCD_UPDATE_DELAY = 0.01
 
@@ -48,7 +48,11 @@ found = False
 attempts = 0
 while not found:
     time.sleep(1)
+    if attempts >= I2C_ATTEMPTS:
+        print('Attempts exceeded, exiting')
+        break
     attempts += 1
+
     try:
         show(f'{attempts}: Connecting')
         bus = board.I2C()
@@ -67,9 +71,6 @@ while not found:
         nc = Nunchuk(board.I2C())
         show(f'Nunchuk at {NUNCHUK_ADDRESS}')
         found = True
-
-        if attempts > I2C_ATTEMPTS:
-            break
     except (OSError, RuntimeError) as e:
         show('Error: {e}')
 
