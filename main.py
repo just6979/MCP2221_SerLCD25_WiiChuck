@@ -87,7 +87,7 @@ try:
         x, y = nc.joystick
         ax, ay, az = nc.acceleration
 
-        z, c = nc.buttons
+        c, z = nc.buttons
         buttons = f'[{"Z" if z else " "}{"C" if c else " "}]'
 
         line_one = f'J:{str(x).zfill(3)},{str(y).zfill(3)} B:{buttons}'
